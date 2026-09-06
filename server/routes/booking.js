@@ -6,7 +6,6 @@ const { protect, admin } = require("../middleware/auth.js");
 
 const {
   bookEvent,
-  sendBookingOTP,
   getMyBookings,
   getAllBookings,
   confirmBooking,
@@ -14,13 +13,22 @@ const {
   rejectBooking,
 } = require("../controllers/bookingController.js");
 
-
+// Create booking
 router.post("/", protect, bookEvent);
-router.post("/send-otp", protect, sendBookingOTP);
+
+// Admin - get all bookings
 router.get("/", protect, admin, getAllBookings);
+
+// User - get my bookings
 router.get("/my", protect, getMyBookings);
+
+// Admin - approve booking
 router.put("/:id/confirm", protect, admin, confirmBooking);
+
+// Admin - reject booking
 router.put("/:id/reject", protect, admin, rejectBooking);
+
+// User - cancel booking
 router.delete("/:id", protect, cancelBooking);
 
 module.exports = router;

@@ -16,27 +16,35 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  fetchEvents();
-}, []);
+    fetchEvents();
+  }, []);
 
-const fetchEvents = async () => {
-  try {
-    const { data } = await api.get("/events");
-    console.log("EVENTS:", data);
+  const fetchEvents = async () => {
+    try {
+      const { data } = await api.get("/events");
+      console.log("EVENTS:", data);
 
-    setEvents(data);
-  } catch (error) {
-    console.error("Error fetching events:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+      if (Array.isArray(data)) {
+        setEvents(data);
+      } else {
+        console.error("Invalid events response:", data);
+        setEvents([]);
+      }
 
-const filteredEvents = events.filter((event) =>
-  event.title.toLowerCase().includes(search.toLowerCase()) ||
-  event.category.toLowerCase().includes(search.toLowerCase()) ||
-  event.location.toLowerCase().includes(search.toLowerCase())
-);
+      setEvents(data);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEvents = events.filter(
+    (event) =>
+      event.title.toLowerCase().includes(search.toLowerCase()) ||
+      event.category.toLowerCase().includes(search.toLowerCase()) ||
+      event.location.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
     <div className="flex flex-col min-h-screen">

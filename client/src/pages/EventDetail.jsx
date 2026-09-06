@@ -13,11 +13,10 @@ const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [showOTP, setShowOTP] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -32,158 +31,143 @@ const EventDetail = () => {
         setLoading(false);
       }
     };
+
     fetchEvent();
   }, [id]);
 
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
 
-   const loadRazorpay = () => {
-  return new Promise((resolve) => {
-    const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
 
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => {
+        resolve(true);
+      };
 
-    script.onload = () => {
-      resolve(true);
-    };
+      script.onerror = () => {
+        resolve(false);
+      };
 
-    script.onerror = () => {
-      resolve(false);
-    };
+      document.body.appendChild(script);
+    });
+  };
 
-    document.body.appendChild(script);
-  });
-};
-
- const handleBooking = async () => {
-  if (!user) {
-    navigate("/login");
-    return;
-  }
-
-  setBookingLoading(true);
-  setError("");
-  setSuccessMsg("");
-
-  try {
-    // STEP 1: Send OTP
-    if (!showOTP) {
-      await api.post("/bookings/send-otp");
-
-      setShowOTP(true);
-
-      setSuccessMsg(
-        "OTP sent to your email. Please enter the OTP to continue."
-      );
-
+  const handleBooking = async () => {
+    if (!user) {
+      navigate("/login");
       return;
     }
 
-    // STEP 2: Verify OTP and create booking
-    const { data } = await api.post("/bookings", {
-      eventId: event._id,
-      otp,
-    });
+    setBookingLoading(true);
+    setError("");
+    setSuccessMsg("");
 
-    const bookingId = data.booking._id;
+    try {
+      // STEP 1: Create Booking
+      const { data } = await api.post("/bookings", {
+        eventId: event._id,
+      });
 
-    // STEP 3: Load Razorpay Checkout
-    const razorpayLoaded = await loadRazorpay();
+      const bookingId = data.booking._id;
 
-    if (!razorpayLoaded) {
-      throw new Error("Razorpay failed to load");
-    }
+      // STEP 2: Load Razorpay Checkout
+      const razorpayLoaded = await loadRazorpay();
 
-    // STEP 4: Create Razorpay Order
-    const orderResponse = await api.post("/payments/create-order", {
-      bookingId,
-    });
+      if (!razorpayLoaded) {
+        throw new Error("Razorpay failed to load");
+      }
 
-    const { orderId, amount, currency, key } = orderResponse.data;
+      // STEP 3: Create Razorpay Order
+      const orderResponse = await api.post("/payments/create-order", {
+        bookingId,
+      });
 
-    // STEP 5: Open Razorpay Test Checkout
-    const options = {
-      key: key,
-      amount: amount,
-      currency: currency,
-      name: "BookMyEvent",
-      description: event.title,
-      order_id: orderId,
+      const { orderId, amount, currency, key } = orderResponse.data;
 
-      handler: async function (response) {
-        try {
-          // STEP 6: Verify payment on backend
-          await api.post("/payments/verify", {
-            bookingId,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          });
+      // STEP 4: Open Razorpay Test Checkout
+      const options = {
+        key: key,
+        amount: amount,
+        currency: currency,
+        name: "BookMyEvent",
+        description: event.title,
+        order_id: orderId,
 
-          setSuccessMsg(
-            "Payment successful! Your booking has been confirmed."
-          );
+        handler: async function (response) {
+          try {
+            // STEP 5: Verify Payment
+            await api.post("/payments/verify", {
+              bookingId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
 
-          setShowOTP(false);
-          setOtp("");
+            setSuccessMsg(
+              "Payment successful! Your booking is waiting for admin approval."
+            );
 
-          setEvent({
-            ...event,
-            availableSeats: event.availableSeats - 1,
-          });
-
-          navigate("/payment-success");
-        } catch (err) {
-          setError(
-            err.response?.data?.error ||
-              "Payment verification failed"
-          );
-        }
-      },
-
-      prefill: {
-        name: user.name,
-        email: user.email,
-      },
-
-      theme: {
-        color: "#111827",
-      },
-
-      modal: {
-        ondismiss: function () {
-          setError("Payment cancelled.");
+            navigate("/payment-success");
+          } catch (err) {
+            setError(
+              err.response?.data?.error ||
+                "Payment verification failed"
+            );
+          }
         },
-      },
-    };
 
-    const paymentObject = new window.Razorpay(options);
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
 
-    paymentObject.open();
+        theme: {
+          color: "#111827",
+        },
 
-  } catch (err) {
-    console.log("BOOKING/PAYMENT ERROR:", err.response?.data);
+        modal: {
+          ondismiss: function () {
+            setError("Payment cancelled.");
+          },
+        },
+      };
 
-    setError(
-      err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        "Booking failed"
-    );
-  } finally {
-    setBookingLoading(false);
-  }
-};
+      const paymentObject = new window.Razorpay(options);
 
-  if (loading)
+      paymentObject.open();
+    } catch (err) {
+      console.log(
+        "BOOKING/PAYMENT ERROR:",
+        err.response?.data
+      );
+
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.message ||
+          "Booking failed"
+      );
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="text-center py-20 text-xl font-semibold">Loading...</div>
+      <div className="text-center py-20 text-xl font-semibold">
+        Loading...
+      </div>
     );
-  if (error && !event)
+  }
+
+  if (error && !event) {
     return (
       <div className="text-center py-20 text-xl text-red-500">
         {error || "Event not found"}
       </div>
     );
+  }
 
   const isSoldOut = event.availableSeats <= 0;
 
@@ -207,9 +191,11 @@ const EventDetail = () => {
             <div className="inline-block bg-gray-200 text-gray-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide mb-3">
               {event.category}
             </div>
+
             <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
               {event.title}
             </h1>
+
             <p className="text-gray-600 text-lg leading-relaxed mb-6">
               {event.description}
             </p>
@@ -225,13 +211,17 @@ const EventDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-900 shrink-0">
                   <FaMoneyBillWave />
                 </div>
+
                 <div>
                   <p className="text-sm font-semibold text-gray-400 uppercase">
                     Ticket Price
                   </p>
+
                   <p className="font-bold text-gray-800 text-lg">
                     {event.ticketPrice === 0 ? (
-                      <span className="text-green-500">Free</span>
+                      <span className="text-green-500">
+                        Free
+                      </span>
                     ) : (
                       `₹${event.ticketPrice}`
                     )}
@@ -243,14 +233,18 @@ const EventDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-900 shrink-0">
                   <FaChair />
                 </div>
+
                 <div>
                   <p className="text-sm font-semibold text-gray-400 uppercase">
                     Availability
                   </p>
+
                   <p className="font-bold text-gray-800">
                     <span
                       className={
-                        event.availableSeats < 10 ? "text-orange-500" : ""
+                        event.availableSeats < 10
+                          ? "text-orange-500"
+                          : ""
                       }
                     >
                       {event.availableSeats}
@@ -264,12 +258,16 @@ const EventDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-900 shrink-0">
                   <FaCalendarAlt />
                 </div>
+
                 <div>
                   <p className="text-sm font-semibold text-gray-400 uppercase">
                     Date
                   </p>
+
                   <p className="font-bold text-gray-800">
-                    {new Date(event.date).toLocaleDateString()}
+                    {new Date(
+                      event.date
+                    ).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -278,56 +276,41 @@ const EventDetail = () => {
                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-900 shrink-0">
                   <FaMapMarkerAlt />
                 </div>
+
                 <div>
                   <p className="text-sm font-semibold text-gray-400 uppercase">
                     Location
                   </p>
-                  <p className="font-bold text-gray-800">{event.location}</p>
+
+                  <p className="font-bold text-gray-800">
+                    {event.location}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {showOTP && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Enter OTP to Confirm
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="6-digit code"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-gray-700 transition shadow-sm font-bold tracking-widest text-center text-lg"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  maxLength="6"
-                />
-              </div>
-            )}
-
             <button
               onClick={handleBooking}
-              disabled={isSoldOut || bookingLoading || (showOTP && !otp)}
+              disabled={isSoldOut || bookingLoading}
               className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition shadow-lg ${
-                isSoldOut || (successMsg && !showOTP)
+                isSoldOut
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-gray-900 hover:bg-black text-white hover:shadow-xl hover:-translate-y-1"
               }`}
             >
               {bookingLoading
                 ? "Processing..."
-                : showOTP
-                  ? "Verify OTP & Confirm"
-                  : successMsg && !showOTP
-                    ? "Request Sent"
-                    : isSoldOut
-                      ? "Sold Out"
-                      : "Confirm Registration"}
+                : isSoldOut
+                  ? "Sold Out"
+                  : "Confirm Registration"}
             </button>
+
             {error && (
               <p className="text-red-500 mt-4 text-center font-medium bg-red-50 p-2 rounded">
                 {error}
               </p>
             )}
+
             {successMsg && (
               <p className="text-green-600 mt-4 text-center font-medium bg-green-50 p-2 rounded">
                 {successMsg}

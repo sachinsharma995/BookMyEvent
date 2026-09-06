@@ -9,39 +9,29 @@ export const AuthProvider = ({ children }) => {
 
   React.useEffect(() => {
     const storedUser = localStorage.getItem("user");
+
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
     try {
-      const { data } = await api.post("/auth/login", { email, password });
-      setUser(data);
-      localStorage.setItem("user", JSON.stringify(data));
-      localStorage.setItem("token", data.token);
-      return data;
-    } catch (err) {
-      console.error("Login failed:", err);
-      throw err;
-    }
-  };
-
-  const verifyOTP = async (email, otp) => {
-    try {
-      const { data } = await api.post("/auth/verify-otp", {
+      const { data } = await api.post("/auth/login", {
         email,
-        otp,
+        password,
       });
 
       setUser(data);
+
       localStorage.setItem("user", JSON.stringify(data));
       localStorage.setItem("token", data.token);
 
       return data;
     } catch (err) {
-      console.error("OTP verification failed:", err);
+      console.error("Login failed:", err);
       throw err;
     }
   };
@@ -53,10 +43,10 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
       });
-      setUser(data);
+
       return data;
     } catch (err) {
-      console.error("registration failed", err);
+      console.error("Registration failed:", err);
       throw err;
     }
   };
@@ -69,7 +59,13 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, logout, verifyOTP, register }}
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        register,
+      }}
     >
       {children}
     </AuthContext.Provider>

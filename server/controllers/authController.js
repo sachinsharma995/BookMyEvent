@@ -10,71 +10,71 @@ const generateToken = (id , role) =>{
 }
 
 // Register user
-exports.registerUser = async(req,res)=>{
-   const {name , email , password} = req.body;
+exports.registerUser = async (req, res) => {
+  const { name, email, password } = req.body;
 
-   let userExists = await User.findOne({email});
-   if(userExists){
-     return res.status(400).json({error: "User already exists"});
-   }
+  let userExists = await User.findOne({ email });
 
-   const salt = await bcrypt.genSalt(10);
-   const hashedPassword = await bcrypt.hash(password , salt);
+  if (userExists) {
+    return res.status(400).json({
+      error: "User already exists",
+    });
+  }
 
-   try{
-    const user = await User.create({name , email , password:hashedPassword , role: 'user', isVerified: false});
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log(`OTP for ${email} : ${otp}`);
+  try {
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: "user",
+      isVerified: true,
+    });
 
-    await OTP.create({email, otp , action: "account_verification"});
-    await sendOTPEmail(email , otp , 'account_verification');
-    res.status(201).json({message: "User registered successfully. Please check your email for OTP to verify your account.",
-      email: user.email
-    })
-   }
-   catch(error){
-     res.status(400).json({error:error.message});
-   }
+    res.status(201).json({
+      message: "User registered successfully. Please login.",
+      email: user.email,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    });
+  }
 };
 
 
 
 // Login User
-exports.loginUser = async(req,res)=>{
-  const{email,password} = req.body;
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
 
-  let user = await User.findOne({email});
-  if(!user){
-     return res.status(400).json({error: "Invalid credentials Please Sign Up first"});
+  let user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(400).json({
+      error: "Invalid credentials Please Sign Up first",
+    });
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if(!isMatch){
-    return res.status(400).json({error: "Invalid credentials"});
-  }
 
-  if(!user.isVerified && user.role === "user"){
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    await OTP.deleteMany({email, action: "account_verification"});
-    await OTP.create({email, otp , action: "account_verification"});
-    await sendOTPEmail(email , otp , 'account_verification');
+  if (!isMatch) {
     return res.status(400).json({
-        error: "Account not verified. A new OTP has been sent to your email.",
-         needsVerification: true
+      error: "Invalid credentials",
     });
   }
-  
+
   res.json({
-       message: "Login successfull",
-       _id: user._id,
-       name: user.name,
-       email: user.email,
-       role: user.role,
-       token: generateToken(user._id , user.role)
+    message: "Login successful",
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    token: generateToken(user._id, user.role),
   });
-}
+};
 
 
 

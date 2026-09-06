@@ -7,14 +7,17 @@ const PaymentSuccess = () => {
     <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
       <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-md w-full text-center border-t-8 border-green-500 transform transition-all hover:-translate-y-1">
         <FaCheckCircle className="text-green-500 text-7xl mx-auto mb-6 drop-shadow-sm" />
+
         <h1 className="text-4xl font-black text-gray-900 mb-4">
           Payment Successful!
         </h1>
+
         <p className="text-gray-500 mb-8 text-lg">
-          Payment Successful! Your payment has been received successfully. Your
-          booking is waiting for admin approval. Please check your dashboard for
-          the booking status..
+          Your payment has been received successfully. Your booking is waiting
+          for admin approval. Please check your dashboard for the booking
+          status.
         </p>
+
         <div className="space-y-4">
           <Link
             to="/dashboard"
@@ -22,6 +25,7 @@ const PaymentSuccess = () => {
           >
             View My Tickets
           </Link>
+
           <Link
             to="/"
             className="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 px-6 rounded-xl transition"
