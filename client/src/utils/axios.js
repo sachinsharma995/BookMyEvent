@@ -3,7 +3,7 @@ import axios from "axios";
 const baseURL =
   window.location.hostname === "localhost"
     ? "http://localhost:5000/api"
-    : "https://bookmyevent-backend-u9li.onrender.com/api";
+    : "https://bookmyevent-vyei.onrender.com/api";
 
 const api = axios.create({
   baseURL,

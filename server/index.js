@@ -17,7 +17,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://bookmyevent-frontend.onrender.com",
+      "https://book-my-event-seven.vercel.app",
     ],
     credentials: true,
   })
