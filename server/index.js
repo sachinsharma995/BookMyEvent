@@ -7,6 +7,8 @@ const eventRoutes = require("./routes/events.js")
 const bookingRoutes = require("./routes/booking.js")
 const paymentRoutes = require("./routes/payment.js");
 
+
+
 dotenv.config();
 
 const app = express();
@@ -26,6 +28,13 @@ app.use(express.json());
  app.use("/api/events", eventRoutes);
  app.use("/api/bookings", bookingRoutes);
  app.use("/api/payments", paymentRoutes);
+
+ app.get("/api/test", (req, res) => {
+    res.json({
+        message: "Render backend is working",
+        eventsRouteLoaded: true
+    });
+});
 
 // connect to mongodb
 mongoose.connect(process.env.MONGO_URI)
